@@ -51,7 +51,7 @@ Também se usa a perda $V^{\pi^\circ}(s) - V^\pi(s)$, que mede quanto uma polít
 
 \subsection*{Observação sobre o reinício do robô}
 
-No \code{env.py} fornecido, uma captura é uma única transição, em que o robô reaparece no estado após as $k$ rodadas do cachorro, mas a recompensa e o desconto são aplicados uma só vez. O efeito de $k$ vem do que acontece nessas rodadas, em que o cachorro se afasta e pode fazer um novo xixi. Se cada rodada de reinício fosse cobrada, o efeito de $k$ seria maior.
+Conforme a especificação do MDP, as $k$ rodadas de uma captura formam uma única transição, com recompensa $r(s)$, o que preserva a propriedade de Markov. O próximo estado é a distribuição do cachorro após $k$ rodadas em modo normal, e a recompensa e o desconto são aplicados uma só vez. Assim, o efeito de $k$ sobre o valor vem do que acontece nessas rodadas, em que o robô fica parado enquanto o cachorro se afasta e pode fazer um novo xixi.
 
 % =====================================================================
 \section{Implementações (seção 4)}
@@ -193,7 +193,7 @@ A maior diferença é em $k = 0$ com $\gamma = 0{,}99$, em que o valor da ótima
 % =====================================================================
 \section{Item 3: Q-learning}
 
-Foram escolhidos os cenários ($k = 4$, $\gamma = 0{,}7$), de horizonte curto, e ($k = 10$, $\gamma = 0{,}99$), o mais difícil, em que a gulosa ainda perde bastante para a ótima. Cada um foi treinado com três sementes e trajetórias de 1, 3 e 10 milhões de passos (Figura~\ref{fig:qlearning}).
+Foram escolhidos os cenários ($k = 4$, $\gamma = 0{,}7$), de horizonte curto, e ($k = 10$, $\gamma = 0{,}99$), o mais difícil, em que a gulosa ainda perde bastante para a ótima. Cada um foi treinado com três sementes e trajetórias de 1, 3 e 10 milhões de passos (Figura~\ref{fig:qlearning}). Como a mesma semente gera a mesma trajetória, as execuções mais curtas são o início das mais longas, e os três pontos equivalem a medir a qualidade da política em três momentos do mesmo treino.
 
 \begin{figure}[H]
 \centering
@@ -204,9 +204,9 @@ Foram escolhidos os cenários ($k = 4$, $\gamma = 0{,}7$), de horizonte curto, e
 
 \subsection*{3a. Inicialização de $Q$ com recompensas não-positivas}
 
-Como as recompensas são no máximo 0, todo valor de $Q$ é no máximo 0, e $Q = 0$ é o maior valor possível. Assim, cada ação experimentada recebe recompensas negativas e passa a parecer pior que as não experimentadas, o que leva o agente a explorar. Isso ajuda a cumprir a condição de que todo par $(s, a)$ seja visitado.
+Como as recompensas são no máximo 0, todo valor de $Q$ é no máximo 0, e $Q = 0$ é o maior valor possível. Assim, cada ação experimentada recebe recompensas negativas e passa a parecer pior que as não experimentadas, o que leva o agente a explorar. Isso ajuda a cumprir a condição de que todo par $(s, a)$ seja visitado. Por outro lado, com $\gamma = 0{,}99$ os valores verdadeiros ficam entre cerca de $-40$ e $-100$, longe do palpite inicial, e com a taxa $\alpha_m = 1/m$ esse viés inicial é corrigido devagar, o que contribui para a convergência lenta vista em 3b.
 
-Para comparar, testou-se a inicialização no pior valor, $-1/(1-\gamma)$. Nela, quando a sala está suja, o alvo da atualização é igual ao valor atual e $Q$ não muda, de modo que as ações ficam empatadas e o agente repete sempre a mesma. Com 3 milhões de passos ela visitou só cerca de 1\% dos pares $(s, a)$, contra mais de 85\% com $Q = 0$, e ficou pior até que a política aleatória. Portanto $Q$ deve começar em 0.
+A outra opção natural, que usa o valor de $\gamma$, é inicializar no menor valor possível, $-1/(1-\gamma)$, o retorno de uma sala suja para sempre. Nela, quando a sala está suja, o alvo da atualização é igual ao valor atual e $Q$ não muda, de modo que as ações ficam empatadas e o agente repete sempre a mesma. Com 3 milhões de passos ela visitou só cerca de 1\% dos pares $(s, a)$, contra mais de 85\% com $Q = 0$, e ficou pior até que a política aleatória. Portanto $Q$ deve começar em 0.
 
 \subsection*{3b. Comparação com os métodos baseados em modelo}
 

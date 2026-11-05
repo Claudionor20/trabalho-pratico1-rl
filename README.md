@@ -1,36 +1,28 @@
-# Exercício 1: robô de limpeza
+# Exercício 1: robô de limpeza e cachorro territorialista
 
-O enunciado está no PDF do exercício.
+COS767, Tópicos Especiais em Aprendizado por Reforço (2026/3). O enunciado está em `enunciado/`.
 
-## Instalação
+## Estrutura
+
+- `cleaning_robot/`: ambiente, modelo, políticas e animação (fornecidos), e as implementações
+  - `dp.py`: `policy_evaluation`, `ValueIteration` e `PolicyIteration`
+  - `qlearning.py`: `QLearning`
+- `00_modelos.py`: constrói o MDP de cada k e guarda em `cache/`
+- `01_item1.py`, `02_item2.py`, `03_item3.py`: experimentos de cada item
+- `resultados/`: tabelas geradas pelos experimentos
+- `figuras/`: gráficos e animações geradas pelos experimentos
+- `relatorio/`: relatório em LaTeX e PDF
+
+## Como rodar
 
 ```bash
 uv sync
+uv run python 00_modelos.py
+uv run python 01_item1.py
+uv run python 02_item2.py
+uv run python 03_item3.py
 ```
 
-## O que é fornecido
-
-- `cleaning_robot/env.py`: o ambiente (sala, cachorro, robô) com a interface do MDP:
-  `reward`, `next_state_probs`, `next_state_sample`, `random_init`.
-- `cleaning_robot/model.py`: enumeração dos estados (`all_states`, `state_index`) e o modelo
-  em matrizes esparsas (`TabularModel`: `P[a]` e `R`).
-- `cleaning_robot/policy.py`: `PolicyMixin`, `GreedyPolicy` e `RandomPolicy`.
-- `cleaning_robot/animate.py`: animação de uma política (`animate`) e simulação (`rollout`).
-
-## O que implementar
-
-- `cleaning_robot/dp.py`: `policy_evaluation`, `ValueIteration` e `PolicyIteration`.
-- `cleaning_robot/qlearning.py`: `QLearning`.
-
-## Exemplo
-
-```python
-from cleaning_robot.env import CleaningEnv
-from cleaning_robot.model import TabularModel
-from cleaning_robot.policy import GreedyPolicy
-from cleaning_robot.animate import animate
-
-env = CleaningEnv(k=2)
-model = TabularModel(env)  # P e R; para k=10 leva ~2 min e ~1.6 GB
-animate(GreedyPolicy(env), env, steps=80, seed=3, filename="greedy.gif")
-```
+Os scripts devem rodar nessa ordem, porque cada um usa resultados dos anteriores.
+O `00_modelos.py` leva alguns minutos por k, e o modelo de k = 10 usa mais de 1 GB de memória.
+O `02_item2.py` e o `03_item3.py` levam da ordem de uma hora cada.

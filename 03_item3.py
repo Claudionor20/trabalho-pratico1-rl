@@ -12,17 +12,16 @@ from cleaning_robot.model import TabularModel, n_states
 from cleaning_robot.qlearning import QLearning
 
 SALA = SMALL_ROOM
-CENARIOS = [(4, 0.7), (10, 0.99)]  # (k, gamma): ajustar depois de ver os itens 1 e 2
+CENARIOS = [(4, 0.7), (10, 0.99)]  # (k, gamma)
 N_PASSOS = [1_000_000, 3_000_000, 10_000_000]
 SEEDS = [0, 1, 2]
-N_PASSOS_INICIAL = 3_000_000  # passos usados na comparação das inicializações de Q (3a)
+N_PASSOS_INICIAL = 3_000_000  # passos na comparação das inicializações (3a)
 
 os.makedirs("resultados", exist_ok=True)
 os.makedirs("figuras", exist_ok=True)
 
 # %% Treino e avaliação do Q-learning
-# O treino usa só random_init, next_state_sample e reward. O modelo é usado depois,
-# apenas para avaliar a política aprendida, pi(s) = argmax_a Q(s, a), com policy_evaluation.
+# O modelo só é usado depois do treino, para avaliar a política aprendida.
 cabecalho = [
     "k", "gamma", "q_init", "n_passos", "seed", "tempo_s", "V_medio", "perda_media",
     "frac_nao_otima", "frac_pares_visitados",
@@ -45,8 +44,7 @@ for k, gamma in CENARIOS:
     melhor = Q_otimo.max(axis=1)
     referencia[(k, gamma)] = [V_otimo[:metade].mean(), (V_otimo - V_gulosa)[:metade].mean()]
 
-    # Q inicial = 0 (como nas aulas) com vários tamanhos de trajetória, e
-    # Q inicial = -1/(1-gamma) (o menor valor possível) para comparar na 3a
+    # Q inicial = 0 com vários tamanhos de trajetória, e Q inicial = -1/(1-gamma) para a 3a
     execucoes = [(0.0, m) for m in N_PASSOS] + [(-1 / (1 - gamma), N_PASSOS_INICIAL)]
     for q_init, n_passos in execucoes:
         for seed in SEEDS:
@@ -59,8 +57,7 @@ for k, gamma in CENARIOS:
                 V_q[:metade].mean(),
                 (V_otimo - V_q)[:metade].mean(),
                 nao_otima[:metade].mean(),
-                # Condição de convergência: todo par (s, a) visitado. Medido nos estados iniciais,
-                # porque muitos estados com o cachorro brincando nunca são alcançados
+                # fração de pares (s, a) visitados nos estados iniciais
                 (ql.visitas[:metade] > 0).mean(),
             ])
             print(f"k={k} gamma={gamma} q_init={q_init:.1f} passos={n_passos:,} seed={seed}: "

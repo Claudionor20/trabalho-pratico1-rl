@@ -63,7 +63,6 @@ for eixo, gamma in zip(eixos, GAMMAS):
 plt.tight_layout()
 plt.savefig("figuras/item2_tempo_vs_k.png", dpi=150)
 
-# Iterações: uma linha de painéis por método, porque as escalas são muito diferentes
 fig, eixos = plt.subplots(2, 2, figsize=(10, 7))
 for j, gamma in enumerate(GAMMAS):
     sel = tab[:, col["gamma"]] == gamma
@@ -79,16 +78,13 @@ plt.tight_layout()
 plt.savefig("figuras/item2_iteracoes_vs_k.png", dpi=150)
 
 # %% 2b e 2c: comparações da política ótima
-# Q(s, a) = r(s) + gamma * soma_o p(o|s, a) V°(o), com V° o valor ótimo do modelo k.
-# Uma ação a é ótima em s quando Q(s, a) = max_a Q(s, a). Como a política ótima não é única,
-# diferenças de Q menores que MELHORA_MIN são tratadas como empate.
-# Médias e frações sobre os estados iniciais (primeira metade dos índices).
+# Q(s, a) = r(s) + gamma soma_o p(o|s, a) V°(o). Médias sobre os estados iniciais.
 acoes_otimas = {}
 for k in K_LISTA:
     for gamma in GAMMAS:
         acoes_otimas[(k, gamma)] = np.load(f"resultados/otima_k{k}_g{gamma}.npz")["acoes_vi"].astype(np.int64)
 
-frac_dif = {gamma: np.zeros((len(K_LISTA), len(K_LISTA))) for gamma in GAMMAS}  # [modelo k, política de k']
+frac_dif = {gamma: np.zeros((len(K_LISTA), len(K_LISTA))) for gamma in GAMMAS}  # linha k, coluna k'
 perda_cruzada = {gamma: np.zeros((len(K_LISTA), len(K_LISTA))) for gamma in GAMMAS}
 
 cabecalho_c = [
@@ -112,16 +108,15 @@ for i, k in enumerate(K_LISTA):
         Q = np.stack([model.R + gamma * (model.P[a] @ V_otimo) for a in range(5)], axis=1)
         melhor = Q.max(axis=1)
 
-        # 2b: política ótima de k' (coluna j) usada no modelo k (linha i)
+        # 2b: política ótima de k' usada no modelo k
         for j, k2 in enumerate(K_LISTA):
             nao_otima = melhor - Q[todos, acoes_otimas[(k2, gamma)]] > MELHORA_MIN
             frac_dif[gamma][i, j] = nao_otima[:metade].mean()
-            # Avaliação da política de k' no modelo k: valor perdido em relação ao ótimo de k
             if k2 != k:
                 V_cruzado = policy_evaluation(model, acoes_otimas[(k2, gamma)], gamma)
                 perda_cruzada[gamma][i, j] = (V_otimo - V_cruzado)[:metade].mean()
 
-        # 2c: ótima contra gulosa e aleatória (valores do item 1)
+        # 2c: ótima contra gulosa e aleatória
         dados = np.load(f"resultados/V_k{k}_g{gamma}.npz")
         V_gulosa = dados["gulosa"].astype(np.float64)
         V_aleatoria = dados["aleatoria"].astype(np.float64)
@@ -140,7 +135,7 @@ with open("resultados/item2_comparacao.csv", "w", newline="") as f:
     escritor.writerow(cabecalho_c)
     escritor.writerows(linhas_c)
 
-# Matrizes da 2b em CSV (linha = modelo k, coluna = política ótima de k')
+# matrizes da 2b em CSV
 with open("resultados/item2_mudanca_politica.csv", "w", newline="") as f:
     escritor = csv.writer(f)
     escritor.writerow(["gamma", "medida", "k_modelo"] + [f"pol_k{k2}" for k2 in K_LISTA])
@@ -149,7 +144,7 @@ with open("resultados/item2_mudanca_politica.csv", "w", newline="") as f:
             escritor.writerow([gamma, "frac_acao_nao_otima", k] + list(frac_dif[gamma][i]))
             escritor.writerow([gamma, "perda_media_valor", k] + list(perda_cruzada[gamma][i]))
 
-# Mapas de calor da 2b: fração de estados e valor perdido
+# mapas de calor da 2b
 for medida, matrizes, rotulo in (("frac", frac_dif, "fração de estados com ação não ótima"),
                                  ("perda", perda_cruzada, "valor perdido médio, V° - V")):
     fig, eixos = plt.subplots(1, 2, figsize=(11, 4.5))
@@ -169,7 +164,7 @@ for medida, matrizes, rotulo in (("frac", frac_dif, "fração de estados com aç
     plt.tight_layout()
     plt.savefig(f"figuras/item2_mudanca_politica_{medida}.png", dpi=150)
 
-# Gráfico da 2c: valor médio das três políticas contra k
+# 2c: V médio das três políticas
 tab_c = np.array(linhas_c)
 col_c = {nome: i for i, nome in enumerate(cabecalho_c)}
 fig, eixos = plt.subplots(1, 2, figsize=(10, 4))

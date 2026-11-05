@@ -17,16 +17,14 @@ from cleaning_robot.policy import GreedyPolicy, RandomPolicy
 SALA = SMALL_ROOM
 K_LISTA = [0, 1, 2, 4, 6, 10]
 GAMMAS = [0.7, 0.99]
-PASSOS_TRAJETORIA = 20000  # tamanho da trajetória simulada (média amostral S_k)
+PASSOS_TRAJETORIA = 20000
 
 os.makedirs("resultados", exist_ok=True)
 os.makedirs("figuras", exist_ok=True)
 
 # %% Avaliação das políticas gulosa e aleatória
-# V(s) de cada estado é calculado com policy_evaluation (MDP + política = MRP).
-# Para resumir V em um número, usa-se a média de V sob a distribuição inicial nu(0):
-# random_init sorteia de forma uniforme os estados com dog_playing=False, que são
-# os primeiros n/2 índices (dog_playing é o dígito mais significativo de state_index).
+# Médias sobre os estados iniciais: random_init só sorteia estados com o cachorro
+# em modo normal, que são a primeira metade dos índices.
 cabecalho = [
     "k", "gamma", "V_gulosa", "V_aleatoria", "dV_medio", "frac_gulosa_melhor",
     "S_gulosa", "S_aleatoria", "capturas_gulosa", "capturas_aleatoria",
@@ -46,12 +44,10 @@ for k in K_LISTA:
 
     politica_gulosa = GreedyPolicy(env)
     politica_aleatoria = RandomPolicy()
-    acoes_gulosa = tabulate(model, politica_gulosa)  # pi(s) da política gulosa em cada estado
-    probs_aleatoria = np.full((n, 5), 0.2)  # pi(a|s) = 1/5 para toda ação
+    acoes_gulosa = tabulate(model, politica_gulosa)
+    probs_aleatoria = np.full((n, 5), 0.2)
 
-    # Simulação de uma trajetória longa (Teorema Ergódico):
-    # S_k = (1/k) soma r(X_t) converge para a média de r sob a distribuição estacionária.
-    # Como r = -1 com xixi e 0 sem, -S_k é a fração de passos com a sala suja.
+    # Trajetória longa: -S_k é a fração de passos com a sala suja
     S = {}
     capturas = {}
     for nome, politica in (("gulosa", politica_gulosa), ("aleatoria", politica_aleatoria)):
@@ -74,8 +70,7 @@ for k in K_LISTA:
             aleatoria=V_aleatoria.astype(np.float32),
         )
 
-        # Diferença de valor estado a estado: quanto a aleatória perde para a gulosa
-        # (diferenças abaixo de 1e-6 são tratadas como empate, por causa do erro numérico)
+        # diferença estado a estado (abaixo de 1e-6 conta como empate)
         dV = (V_gulosa - V_aleatoria)[:metade]
         linhas.append([
             k, gamma, V_gulosa[:metade].mean(), V_aleatoria[:metade].mean(), dV.mean(), (dV > 1e-6).mean(),
@@ -93,7 +88,7 @@ with open("resultados/item1.csv", "w", newline="") as f:
 tab = np.array(linhas)
 col = {nome: i for i, nome in enumerate(cabecalho)}
 
-# Valor médio contra k, um painel por gamma (cada painel na sua escala; o pior caso é -1/(1-gamma))
+# V médio contra k (linha tracejada: pior caso -1/(1-gamma))
 fig, eixos = plt.subplots(1, 2, figsize=(10, 4))
 for eixo, gamma in zip(eixos, GAMMAS):
     sel = tab[:, col["gamma"]] == gamma
@@ -107,7 +102,7 @@ for eixo, gamma in zip(eixos, GAMMAS):
 plt.tight_layout()
 plt.savefig("figuras/item1_V_vs_k.png", dpi=150)
 
-# Diferença média de valor (gulosa - aleatória) contra k
+# diferença média gulosa - aleatória contra k
 fig, eixos = plt.subplots(1, 2, figsize=(10, 4))
 for eixo, gamma in zip(eixos, GAMMAS):
     sel = tab[:, col["gamma"]] == gamma
@@ -118,7 +113,7 @@ for eixo, gamma in zip(eixos, GAMMAS):
 plt.tight_layout()
 plt.savefig("figuras/item1_diferenca_vs_k.png", dpi=150)
 
-# Simulação: capturas por passo e fração de passos com sala suja (não dependem de gamma)
+# simulação: capturas por passo e fração com sala suja
 sel = tab[:, col["gamma"]] == GAMMAS[0]
 fig, eixos = plt.subplots(1, 2, figsize=(10, 4))
 eixos[0].plot(tab[sel, col["k"]], tab[sel, col["capturas_gulosa"]], "o-", label="gulosa")
@@ -135,11 +130,8 @@ plt.tight_layout()
 plt.savefig("figuras/item1_simulacao.png", dpi=150)
 
 # %% 1c: método direto contra método iterativo
-# Direto: resolve o sistema (I - gamma P_pi) V = r. Com a matriz densa, o custo é O(n^3) e
-# a memória n^2; aqui o sistema esparso é resolvido por fatoração LU (splu).
-# Iterativo: V_k = r + gamma P_pi V_{k-1} até max |V_k - V_{k-1}| < ERRO.
-# Casos: salas menores (construídas aqui) e a sala do enunciado (lida do cache).
-# A fatoração pode usar muita memória na sala do enunciado: com pouca RAM, apague os dois últimos casos.
+# Direto: resolve (I - gamma P_pi) V = r com splu. Iterativo: repete V = r + gamma P_pi V.
+# Os dois últimos casos (sala do enunciado) usam bastante memória no método direto.
 casos = [
     (Room.centered(5, 3, 1, 1), False, 2),
     (Room.centered(7, 3, 1, 1), False, 2),
@@ -187,7 +179,7 @@ for sala, do_cache, k in casos:
     V_direto = lu.solve(model_c.R)
     t_direto = time.perf_counter() - t0
 
-    # Memória: 12 bytes por elemento não nulo (8 do valor e 4 do índice); a densa tem n^2 valores de 8 bytes
+    # memória: 12 bytes por não nulo; a matriz densa teria n^2 valores de 8 bytes
     mb_iter = P_pi.nnz * 12 / 1e6
     mb_direto = (lu.L.nnz + lu.U.nnz) * 12 / 1e6
     gb_densa = n_c**2 * 8 / 1e9

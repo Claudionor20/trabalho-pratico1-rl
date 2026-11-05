@@ -1,5 +1,4 @@
-# Exercício 1: robô de limpeza e cachorro territorialista
-
+# Exercício 1: Robô de Limpeza e Cachorro
 COS767, Tópicos Especiais em Aprendizado por Reforço (2026/3). O enunciado está em `enunciado/`.
 
 ## Estrutura

@@ -1,0 +1,8 @@
+cache/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.npz
+*.aux
+*.log
+*.out

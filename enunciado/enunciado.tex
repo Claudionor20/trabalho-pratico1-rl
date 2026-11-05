@@ -1,0 +1,240 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{gray},
+  stringstyle=\color{orange!70!black},
+  columns=fullflexible,
+  frame=single,
+  rulecolor=\color{gray!40},
+  aboveskip=0.8em,
+  belowskip=0.8em,
+}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Exercício 1: Tópicos Especiais em Aprendizado por Reforço}
+\author{COS767 - 2026/3}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Cenário}
+
+Vamos programar um robô de limpeza que divide o espaço com um cachorro territorialista! O cachorro
+se movimenta pela sala ``marcando território'' e cabe ao robô limpar a bagunça. O robô é penalizado
+sempre que a sala está suja, então ele deve passar onde o cachorro molhou o mais rápido possível!
+Para dificultar a história, o cachorro também é brincalhão, e se percebe o robô se movendo, ele o
+persegue, e pula em cima dele. Isso faz com que o robô precise reiniciar, ficando $k$ rodadas
+parado enquanto o cachorro anda livremente pela sala.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figuras/sala_normal.png}\\[2pt]
+    (a)
+  \end{minipage}\hfill
+  \begin{minipage}{0.49\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figuras/sala_brincadeira.png}\\[2pt]
+    (b)
+  \end{minipage}
+  \caption{A sala, contendo uma mesa no centro. (a) Cachorro em modo normal, olhando para a
+    direita: as células em rosa indicam o seu campo de visão. (b) Cachorro em modo brincadeira
+    (``!''), perseguindo o robô.}
+  \label{fig:sala}
+\end{figure}
+
+\section{Descrição do MDP}
+
+\paragraph{Sala.} Uma grade de $9 \times 5$ células com uma mesa de $3 \times 1$ no centro, que
+bloqueia o movimento e a visão. Ou seja, há 42 células livres para o robô e para o cachorro.
+
+\paragraph{Estado.} Posição do robô, posição do cachorro, orientação do cachorro ($N$, $L$, $S$ ou
+$O$), modo do cachorro (normal ou brincadeira) e posição do xixi (ou sala limpa). O cachorro, sendo
+territorialista, só faz xixi novamente quando nota que a sala está limpa, ou seja, há no máximo um
+xixi na sala por vez. Obtemos então $2 \cdot 42 \cdot 42 \cdot 4 \cdot 43 = 606.816$ estados.
+
+\paragraph{Ações.} Movimentar o robô uma célula para $N$, $L$, $S$ ou $O$, ou ficar parado. Um
+movimento contra a parede ou a mesa não surte efeito.
+
+\paragraph{Recompensa.} $r(s) = -1$ sempre que há xixi na sala e $r(s) = 0$ caso contrário.
+
+\paragraph{Uma rodada.} A partir do estado $s$ e da ação $a$, os eventos acontecem na seguinte
+ordem:
+\begin{enumerate}
+  \item O robô executa $a$, uma ação de movimento. Para limpar o xixi, basta ele terminar a rodada
+    na mesma célula.
+  \item Se o cachorro está em modo normal, ele percebe o robô quando o robô se moveu nesta rodada e
+    (i) a nova posição do robô está no campo de visão do cachorro, ou (ii) o robô entrou na célula
+    do cachorro. O campo de visão é um cone de $90^\circ$ na direção em que o cachorro olha,
+    limitado pelo obstáculo central, a mesa. Ao perceber o robô, o cachorro entra no modo
+    brincadeira já nesta rodada.
+  \item O cachorro se move.
+    \begin{itemize}
+      \item \textbf{Modo normal.} Com probabilidade $1-p$, anda uma célula na direção que está
+        virado. Se está de frente para uma barreira, o cachorro dá meia-volta. Com probabilidade
+        $p$, o cachorro para e vira para uma das outras três direções, escolhida uniformemente, e,
+        se a sala está limpa, faz xixi na própria célula.
+      \item \textbf{Modo brincadeira.} Se o cachorro tem linha de visão até o robô (em qualquer
+        direção), avança até duas células em direção a ele, incluindo diagonais, e passa a olhar
+        para ele. Caso contrário, corre até duas células na direção em que estava olhando, ou seja,
+        na direção em que viu o robô pela última vez. Se ele chega a um obstáculo sem ver o robô,
+        volta ao modo normal.
+    \end{itemize}
+  \item Se o cachorro alcança a célula do robô, há uma captura. O cachorro volta ao modo normal e o
+    robô é desligado! Enquanto o robô reinicia, o cachorro anda $k$ rodadas em modo normal (e pode
+    fazer xixi).
+\end{enumerate}
+
+As $k$ rodadas de uma captura formam uma única transição, com recompensa $r(s)$. Dessa forma, a
+propriedade de Markov é mantida: cada valor de $k$ apenas define uma distribuição para o próximo
+estado, e o robô não precisa conhecer o caminho que o cachorro fez.
+
+\paragraph{Parâmetros.} $p = 0{,}2$. Os experimentos devem usar pelo menos
+$k \in \{0, 1, 2, 4, 6, 10\}$ e dois fatores de desconto: $\gamma = 0{,}7$ (curto prazo) e
+$\gamma = 0{,}99$ (longo prazo).
+
+\section{Código fornecido}
+
+O repositório já contém o ambiente, o modelo e a animação. O projeto é em Python, e usa o
+gerenciador de pacotes \code{uv}. A instalação pode ser feita com \code{uv sync}. Se o(a)
+estudante tiver a preferência de outro gerenciador de pacotes ou linguagem de programação, é
+permitido o uso de ferramentas de IA para a conversão do código. Os componentes a serem
+implementados como parte do exercício, porém, devem ser feitos pela própria pessoa. Por isso a
+maior parte do código auxiliar já está disponibilizada, para que só se preocupe com os experimentos
+e algoritmos relevantes à disciplina.
+
+Para ajudar a depurar as implementações, use a função \code{animate(policy, env, steps, filename)}
+para salvar um GIF da sua política em ação (badum tss)!
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  Módulo & Conteúdo \\
+  \midrule
+  \code{cleaning\_robot/env.py} & \code{CleaningEnv}: dinâmica do cachorro e interface do MDP \\
+  \code{cleaning\_robot/model.py} & \code{all\_states}, \code{state\_index}, \code{TabularModel} \\
+  \code{cleaning\_robot/policy.py} & \code{PolicyMixin}, \code{GreedyPolicy}, \code{RandomPolicy} \\
+  \code{cleaning\_robot/animate.py} & \code{animate} (GIF de uma política) e \code{rollout} (simulação) \\
+  \code{cleaning\_robot/dp.py} & \code{TabularPolicy}, \code{tabulate} e os esqueletos dos itens~1 e~2 \\
+  \code{cleaning\_robot/qlearning.py} & esqueleto do item~3 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+from cleaning_robot.env import CleaningEnv
+from cleaning_robot.model import TabularModel, state_index
+from cleaning_robot.policy import GreedyPolicy
+from cleaning_robot.animate import animate, rollout
+
+env = CleaningEnv(k=2)                  # p = 0.2
+s = env.random_init(seed=0)             # estado inicial aleatorio
+env.reward(s)                           # r(s)
+env.next_state_probs(s, a)              # {s': P(s'|s,a)}
+env.next_state_sample(s, a, seed)       # s' ~ P(.|s,a)
+
+model = TabularModel(env)               # model.P[a][i, j] = P(j|i,a), model.R[i] = r(i)
+i = state_index(env, s)                 # linha de s em P e R
+
+animate(GreedyPolicy(env), env, steps=80, filename="greedy.gif")
+\end{lstlisting}
+
+\paragraph{Modelo.} Para facilitar uma implementação matricial dos algoritmos model-based,
+fornecemos a classe \code{TabularModel}, que enumera os estados com \code{state\_index} e guarda o
+MDP como uma matriz esparsa $n \times n$ por ação, \code{model.P[a]}, e o vetor de recompensas
+\code{model.R}. Pode valer a pena salvar as matrizes em disco (\code{scipy.sparse.save\_npz}).
+
+\paragraph{Políticas.} Toda política deve herdar \code{PolicyMixin} e implementar
+\code{act(state, seed=None)}, que devolve uma ação. \code{TabularPolicy} guarda uma ação por índice
+de estado; \code{tabulate(model, policy)} produz essa tabela para qualquer política
+determinística. A política gulosa (\code{GreedyPolicy}) segue o caminho mais curto até o xixi e
+ignora o cachorro; a política aleatória (\code{RandomPolicy}) escolhe uma ação uniforme.
+
+\section{Funções e classes a implementar}
+\label{sec:fc}
+
+\begin{itemize}
+  \item \code{policy\_evaluation(model, policy, gamma)} em \code{dp.py}: o valor $V^\pi$ de uma
+    política, usando o modelo. A política é uma ação por estado (determinística) ou uma matriz de
+    probabilidades $n \times 5$.
+  \item \code{ValueIteration(model, gamma)} e \code{PolicyIteration(model, gamma)} em
+    \code{dp.py}.
+  \item \code{QLearning(env, gamma, n\_steps, seed)} em \code{qlearning.py}. Lembre que o
+    Q-learning é model-free e só pode usar \code{random\_init}, \code{next\_state\_sample} e
+    \code{reward}, não \code{model.P}.
+\end{itemize}
+
+As classes já têm um esqueleto, e herdam de \code{PolicyMixin}, mas é permitido mexer no código já
+feito, inclusive nos construtores para incluir parâmetros adicionais.
+
+\section{Tarefas}
+
+Para os itens que seguem abaixo, você deve definir e justificar suas métricas de desempenho. Vamos
+querer medir convergência para o ótimo, comparar políticas, etc.
+
+Os itens 1 e 2 devem ser feitos para $\gamma = 0{,}7$ e $\gamma = 0{,}99$.
+
+\begin{enumerate}
+  \item \textbf{Avaliação de políticas.} Implemente \code{policy\_evaluation} e avalie a política
+    gulosa e a política aleatória para cada $k$.
+    \begin{enumerate}[label=(\alph*)]
+      \item Quanto uma política perde em relação à outra, como medir isso?
+      \item Como o valor de cada uma varia com $k$? E com $\gamma$?
+      \item Qual abordagem é mais apropriada neste cenário: resolver o sistema diretamente ou por
+        um método iterativo? Justifique comparando tempo e memória.
+    \end{enumerate}
+
+  \item \textbf{Policy iteration e value iteration.} Implemente os dois métodos e faça gráficos do
+    tempo de convergência e do número de iterações em função de $k$.
+    \begin{enumerate}[label=(\alph*)]
+      \item O tempo de convergência muda muito com $k$? E o número de iterações? Por quê?
+      \item A política ótima muda com $k$? Como medir isso?
+      \item Compare a política ótima com as políticas do item 1.
+    \end{enumerate}
+
+  \item \textbf{Q-learning.} Escolha os dois cenários $(k, \gamma)$ mais interessantes e execute o
+    Q-learning.
+    \begin{enumerate}[label=(\alph*)]
+      \item Como inicializar Q? Considere que só existem recompensas não-positivas. Isso tem alguma
+        consequência em inicializar tudo como zero? Dica: a inicialização pode usar o valor de
+        $\gamma$.
+      \item Compare com os métodos baseados em modelo: qualidade da política aprendida ao longo do
+        treino, número de passos de interação e tempo de execução.
+    \end{enumerate}
+\end{enumerate}
+
+\section{Entrega}
+
+Código e um relatório em PDF com os gráficos e as respostas às perguntas. Por favor, use o grupo do
+WhatsApp para tirar dúvidas ou relatar problemas com o código fornecido. É a primeira vez que
+elaboramos esse exercício.
+
+\section{Uso de IA}
+
+A formulação do problema e a especificação das interfaces foram feitas sem IA. O código, porém, foi
+em sua maioria gerado automaticamente por uma LLM + harness. Como comentado anteriormente, se você
+quiser converter o código fornecido para outra linguagem da sua escolha, sinta-se livre para
+fazê-lo também com assistência de IA. Usar IA para tirar dúvidas do código também é permitido. No
+entanto, não use IA para nenhuma outra coisa, em particular, na implementação do que está listado na
+Seção~\ref{sec:fc} e na lógica dos experimentos.
+
+\end{document}

@@ -1,4 +1,5 @@
-"""Q-learning tabular: usa só random_init, next_state_sample e reward."""
+"""Tabular Q-learning: model-free control from sampled transitions only."""
+
 
 from __future__ import annotations
 

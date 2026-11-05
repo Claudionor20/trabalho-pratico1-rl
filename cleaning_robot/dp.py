@@ -1,4 +1,4 @@
-"""Métodos baseados em modelo (programação dinâmica)."""
+"""Model-based methods (dynamic programming)."""
 
 from __future__ import annotations
 
